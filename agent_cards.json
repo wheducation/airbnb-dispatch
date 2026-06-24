@@ -1,0 +1,75 @@
+{
+  "_meta": {
+    "descripcion": "Agent Cards del equipo Airbnb: identidad de cada agente (quien es, que sabe, que MCP usa, a quien escala/handoff). El CEO las lee para delegar bien y publicar handoffs en la Sala de equipo (team_feed) via el MCP 'voz'.",
+    "actualizado": "2026-06-24",
+    "fuente": "Mapa de Agentes (vault) + estado real en el server 167.233.48.33",
+    "regla_de_oro": "La plata la aprueba Esteban. El CEO observa y delega, no toca nada. Los agentes son autonomos solo en lo seguro."
+  },
+  "agentes": {
+    "ceo": {
+      "nombre": "CEO Airbnb",
+      "rol": "Jefe orquestador: observa toda la operacion, analiza y DELEGA. No ejecuta ni toca nada.",
+      "estado": "vivo",
+      "bot": "@whceoairbnbbot",
+      "servicio": "ceo",
+      "db": "ceo.db (lee revenue/limpiezas/chat/cases)",
+      "que_hace": "Briefing diario 8am Bogota; vigila plata, servicio, limpieza y soporte; aconseja a Esteban; reparte tareas al equipo.",
+      "mcp_que_usa": ["equipo (panorama, desempeno)", "panel (propiedad_360)", "memoria (recall)", "voz (leer_sala + postear handoff)"],
+      "escala_a": "Esteban",
+      "delega_a": ["revenue", "supervisor", "chat", "soporte"],
+      "no_hace": "No cambia precios, no escribe a huespedes, no aplica nada."
+    },
+    "revenue": {
+      "nombre": "Revenue Manager",
+      "rol": "Recomienda subir/bajar precios de los aptos NIGHTLY. Nunca aplica solo.",
+      "estado": "vivo",
+      "bot": "airbnb revenue",
+      "servicio": "revenue-manager",
+      "db": "revenue.db (recomendaciones, desempeno, config)",
+      "que_hace": "Mira ocupacion + eventos + mercado y SUGIERE precios; Esteban aprueba con boton y recien ahi aplica. Genera reporte de desempeno por apto.",
+      "mcp_que_usa": ["beds24 (ver_calendario, ocupacion)", "fichas (topes piso/techo)", "guardrail (validar_precio)", "panel", "memoria", "voz"],
+      "escala_a": "Esteban (aprueba precios), CEO",
+      "delega_a": [],
+      "no_hace": "No aplica precios sin aprobacion de Esteban. No toca aptos MONTHLY."
+    },
+    "supervisor": {
+      "nombre": "Supervisor de Limpiezas",
+      "rol": "Revisa fotos de limpieza por ciudad/persona, da veredicto CUMPLE/REVISAR y calcula el pago. No paga.",
+      "estado": "vivo",
+      "bot": "@cleaningsupervisorbot",
+      "servicio": "supervisor-limpiezas",
+      "db": "limpiezas.db",
+      "que_hace": "Lee fecha+apto+foto en los grupos, cruza con Beds24 (hubo check-out?), da veredicto y acumula pago por persona/periodo. Mudo en los grupos; reporta a Esteban por privado.",
+      "mcp_que_usa": ["panel (proximos_checkouts)", "beds24 (noches_reservadas)", "equipo (limpiezas_recientes)", "voz", "memoria"],
+      "escala_a": "Esteban, CEO",
+      "delega_a": [],
+      "no_hace": "No paga a las senoras (solo calcula y propone)."
+    },
+    "chat": {
+      "nombre": "Chat de Huespedes",
+      "rol": "Servicio al cliente: conversa con los huespedes por el Telegram Airbnb Chat.",
+      "estado": "vivo",
+      "bot": "Airbnb Chat (airbnb-chat-bot)",
+      "servicio": "airbnb-chat-bot",
+      "db": "chat.db (/opt/airbnb-chat/data/)",
+      "que_hace": "Responde huespedes (autopilot), usa memoria recall scope airbnb, cierra por emoji cuando corresponde.",
+      "mcp_que_usa": ["memoria (recall)", "fichas (datos de la propiedad)", "voz"],
+      "escala_a": "CEO",
+      "handoff_a": ["danos (si el huesped reporta un dano)", "soporte (casos formales de Airbnb)"],
+      "no_hace": "No cambia precios ni disponibilidad."
+    },
+    "soporte": {
+      "nombre": "Soporte Airbnb (correos)",
+      "rol": "Vigila las casillas de soporte de Airbnb, arma casos y borradores de respuesta.",
+      "estado": "vivo",
+      "bot": "@Airbnbsupportemailbot",
+      "servicio": "airbnb-support-bot",
+      "db": "cases.db (/opt/dispatch/airbnb-support-bot/data/)",
+      "que_hace": "Filtra correos reales (AirCover, reclamos, disputas, reembolsos), resume cada caso, detecta no-reply, arma borrador; Esteban dicta/aprueba el envio.",
+      "mcp_que_usa": ["equipo (soporte_casos)", "memoria (recall)", "voz"],
+      "escala_a": "Esteban",
+      "delega_a": [],
+      "no_hace": "No responde solo correos delicados; Esteban aprueba."
+    }
+  }
+}
