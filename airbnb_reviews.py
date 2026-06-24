@@ -18,7 +18,8 @@ Este robot es la capa de AVISOS + GUARDIA por encima de eso:
 
   2) HEADS-UP DE GUARDIA (lo que pediste: "guardia para no resenar a un huesped
      problema"): antes de que se dispare la review automatica, lista los
-     checkouts recientes que van a recibir 5 estrellas, para que puedas vetar a
+     checkouts recientes que van a recibir 5 estrellas, CON EL TEXTO EXACTO que
+     se va a postear (plantilla + nombre + ciudad), para que puedas vetar a
      alguien a tiempo.
 
   3) VETO (opcional y SEGURO por defecto): si pones un bookingId o un nombre en
@@ -57,6 +58,47 @@ VETO_FILE = os.path.join(BASE_DIR, "no_review.txt")
 
 # Beds24 postea la review automatica ~4 dias despues del checkout.
 AUTO_REVIEW_DELAY_DAYS = 4
+
+# Plantillas de Auto Review Text aplicadas en Beds24 (repartidas T1-T4 por listing).
+# Sirven para PREVISUALIZAR el texto exacto que Beds24 va a postear, sin depender del
+# endpoint de reviews. [GUESTFIRSTNAME] -> nombre real del huesped ; [PROPERTYCITY] ->
+# ciudad del property (se resuelve por API; si no se puede, se deja el placeholder).
+TEMPLATES = {
+    "T1": ("It was a real pleasure hosting [GUESTFIRSTNAME] here in [PROPERTYCITY]! "
+           "Super easy communication, treated the apartment with care, and left "
+           "everything spotless. Any host would be lucky to have them. Come back "
+           "anytime \U0001f64c"),
+    "T2": ("[GUESTFIRSTNAME] was a wonderful guest during their stay in [PROPERTYCITY]. "
+           "Respectful, tidy, and great to chat with throughout. Followed every house "
+           "rule and left the place perfect. Highly recommended to other hosts ⭐ "
+           "Hope to see you again!"),
+    "T3": ("Hosting [GUESTFIRSTNAME] in [PROPERTYCITY] was a breeze! Clear communication, "
+           "smooth check in, and real care for the space. Exactly the kind of guest you "
+           "hope for. Welcome back whenever you're in [PROPERTYCITY] \U0001f306"),
+    "T4": ("What a pleasure to have [GUESTFIRSTNAME] staying with us in [PROPERTYCITY]! "
+           "Friendly, respectful, and left the apartment just as they found it. A genuine "
+           "5-star guest from start to finish. Welcome back soon \U0001f64f"),
+}
+
+# roomId -> plantilla asignada (confirmado al guardar el Auto Review Text en cada listing).
+ROOM_TEMPLATE = {
+    "689885": "T1",  # 1105
+    "689874": "T2",  # 1224
+    "689884": "T3",  # 1922
+    "690330": "T4",  # 207
+    "689869": "T1",  # 2208
+    "690345": "T2",  # 2208 (2)
+    "689872": "T4",  # 2715
+    "689873": "T1",  # 3301
+    "689881": "T2",  # 402
+    "689883": "T3",  # 4065
+    "689866": "T4",  # 419
+    "689879": "T1",  # 602
+    "689878": "T2",  # 802
+    "689887": "T3",  # 802 (2)
+    "690344": "T4",  # 802 (3)
+    "690346": "T3",  # 2523 (desconectado de Beds24)
+}
 
 
 # --------------------------------------------------------------------------
@@ -258,6 +300,40 @@ def _booking_room_label(bk, labels):
     return labels.get(rid, "apto " + rid if rid else "apto ?")
 
 
+def _property_cities():
+    """propertyId -> ciudad, para resolver [PROPERTYCITY] en la previsualizacion."""
+    out = {}
+    try:
+        res = b._request("GET", "/properties", headers=b._auth(), params={})
+        for p in _as_list(res):
+            pid = str(_g(p, "id", "propertyId", "propId", default=""))
+            city = _g(p, "city", "town", default="")
+            if pid and city:
+                out[pid] = str(city)
+    except BaseException:
+        pass
+    return out
+
+
+def _render_review(bk, cities):
+    """Texto EXACTO que Beds24 va a postear para esta reserva (preview).
+    Vacio si el apto no tiene plantilla mapeada."""
+    rid = str(_g(bk, "roomId", default=""))
+    tkey = ROOM_TEMPLATE.get(rid)
+    if not tkey:
+        return ""
+    text = TEMPLATES.get(tkey, "")
+    if not text:
+        return ""
+    first = _guest_first(bk) or "your guest"
+    text = text.replace("[GUESTFIRSTNAME]", first)
+    pid = str(_g(bk, "propertyId", "propId", default=""))
+    city = cities.get(pid, "")
+    if city:
+        text = text.replace("[PROPERTYCITY]", city)
+    return text
+
+
 # --------------------------------------------------------------------------
 # Veto / desactivar review automatica
 # --------------------------------------------------------------------------
@@ -321,6 +397,7 @@ def main():
         return
 
     labels = _room_labels()
+    cities = _property_cities()
     bookings = fetch_bookings(d0, d1)
     by_id = _index_bookings(bookings)
     reviews = fetch_reviews()
@@ -401,8 +478,12 @@ def main():
             vetados_detectados.append("%s %s (%s) checkout %s"
                                       % (estado, nombre, apto, dep.isoformat()))
         else:
-            proximos.append("• %s (%s) — checkout %s → 5★ el %s"
-                            % (nombre, apto, dep.isoformat(), post_date.isoformat()))
+            linea = ("• %s (%s) — checkout %s → 5★ el %s"
+                     % (nombre, apto, dep.isoformat(), post_date.isoformat()))
+            preview = _render_review(bk, cities)
+            if preview:
+                linea += "\n   «" + preview + "»"
+            proximos.append(linea)
 
     # ---------------- Construir y enviar ----------------
     bloques = []
